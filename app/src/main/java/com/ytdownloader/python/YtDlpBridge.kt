@@ -4,7 +4,6 @@ import com.ytdownloader.data.model.FormatOption
 import com.ytdownloader.data.model.VideoInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
@@ -12,12 +11,28 @@ import java.io.InputStreamReader
 
 object YtDlpBridge {
 
+    private var permissionsSet = false
+
+    private fun ensureExecutePermission(path: String) {
+        if (permissionsSet) return
+        try {
+            val process = Runtime.getRuntime().exec(arrayOf("chmod", "755", path))
+            process.waitFor()
+            permissionsSet = true
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     suspend fun fetchVideoInfo(url: String): VideoInfo = withContext(Dispatchers.IO) {
         val ytdlpPath = BinaryManager.getYtDlpPath()
+        val file = File(ytdlpPath)
 
-        if (!File(ytdlpPath).exists()) {
-            throw RuntimeException("yt-dlp binary not found. Please restart the app.")
+        if (!file.exists()) {
+            throw RuntimeException("yt-dlp binary not found at: $ytdlpPath")
         }
+
+        ensureExecutePermission(ytdlpPath)
 
         val command = listOf(
             ytdlpPath,
@@ -25,14 +40,12 @@ object YtDlpBridge {
             "--no-playlist",
             "--no-warnings",
             "--no-check-certificates",
+            "--cache-dir", File(file.parentFile, "cache").absolutePath,
             url
         )
 
         val process = ProcessBuilder(command)
             .redirectErrorStream(true)
-            .apply {
-                environment()["HOME"] = BinaryManager.getBinariesDir().absolutePath
-            }
             .start()
 
         val output = readProcessOutput(process)
@@ -48,10 +61,13 @@ object YtDlpBridge {
     suspend fun fetchFormats(url: String): Pair<List<FormatOption>, List<FormatOption>> =
         withContext(Dispatchers.IO) {
             val ytdlpPath = BinaryManager.getYtDlpPath()
+            val file = File(ytdlpPath)
 
-            if (!File(ytdlpPath).exists()) {
-                throw RuntimeException("yt-dlp binary not found. Please restart the app.")
+            if (!file.exists()) {
+                throw RuntimeException("yt-dlp binary not found at: $ytdlpPath")
             }
+
+            ensureExecutePermission(ytdlpPath)
 
             val command = listOf(
                 ytdlpPath,
@@ -59,14 +75,12 @@ object YtDlpBridge {
                 "--no-playlist",
                 "--no-warnings",
                 "--no-check-certificates",
+                "--cache-dir", File(file.parentFile, "cache").absolutePath,
                 url
             )
 
             val process = ProcessBuilder(command)
                 .redirectErrorStream(true)
-                .apply {
-                    environment()["HOME"] = BinaryManager.getBinariesDir().absolutePath
-                }
                 .start()
 
             val output = readProcessOutput(process)
@@ -85,6 +99,8 @@ object YtDlpBridge {
         if (!File(ytdlpPath).exists()) {
             return@withContext "yt-dlp binary not found at: $ytdlpPath"
         }
+
+        ensureExecutePermission(ytdlpPath)
 
         val command = listOf(ytdlpPath, "--version")
 

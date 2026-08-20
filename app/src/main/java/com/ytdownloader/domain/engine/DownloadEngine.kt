@@ -105,6 +105,14 @@ class DownloadEngine(
         }
     }
 
+    private fun ensureExecutePermission(path: String) {
+        try {
+            Runtime.getRuntime().exec(arrayOf("chmod", "755", path)).waitFor()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private suspend fun downloadStream(
         url: String,
         formatSpec: String,
@@ -112,6 +120,8 @@ class DownloadEngine(
         isVideo: Boolean
     ) {
         val ytdlpPath = BinaryManager.getYtDlpPath()
+
+        ensureExecutePermission(ytdlpPath)
 
         val command = listOf(
             ytdlpPath,
@@ -125,9 +135,6 @@ class DownloadEngine(
 
         val process = ProcessBuilder(command)
             .redirectErrorStream(true)
-            .apply {
-                environment()["HOME"] = BinaryManager.getBinariesDir().absolutePath
-            }
             .start()
 
         currentProcess = process
@@ -212,6 +219,8 @@ class DownloadEngine(
                 return@withContext false
             }
 
+            ensureExecutePermission(ffmpegPath)
+
             val command = listOf(
                 ffmpegPath,
                 "-i", videoFile.absolutePath,
@@ -223,9 +232,6 @@ class DownloadEngine(
 
             val process = ProcessBuilder(command)
                 .redirectErrorStream(true)
-                .apply {
-                    environment()["HOME"] = BinaryManager.getBinariesDir().absolutePath
-                }
                 .start()
 
             val reader = BufferedReader(InputStreamReader(process.inputStream))

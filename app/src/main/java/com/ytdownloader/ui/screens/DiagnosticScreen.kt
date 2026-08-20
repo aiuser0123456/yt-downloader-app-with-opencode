@@ -130,7 +130,7 @@ fun DiagnosticScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Binaries dir: ${BinaryManager.getBinariesDir()}",
+                        text = "Native lib dir: ${BinaryManager.getYtDlpPath().substringBeforeLast("/")}",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
