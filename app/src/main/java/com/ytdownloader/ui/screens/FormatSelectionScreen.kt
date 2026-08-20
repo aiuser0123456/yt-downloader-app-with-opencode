@@ -11,11 +11,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.ytdownloader.data.model.FormatOption
 import com.ytdownloader.data.model.VideoInfo
 import com.ytdownloader.ui.components.FormatCard

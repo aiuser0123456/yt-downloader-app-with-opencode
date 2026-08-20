@@ -35,9 +35,8 @@ class DownloadRepository(private val context: Context) {
         return if (uriString != null) {
             try {
                 val uri = Uri.parse(uriString)
-                val docFile = android.provider.DocumentsContract
-                    .buildDocumentUriTreeId("com.android.externalstorage.documents", uri.lastPathSegment ?: "")
-                File(uri.lastPathSegment ?: "")
+                val path = uri.lastPathSegment
+                if (path != null) File(path) else null
             } catch (e: Exception) {
                 null
             }

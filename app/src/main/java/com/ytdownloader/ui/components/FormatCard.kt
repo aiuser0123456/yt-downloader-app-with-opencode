@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ytdownloader.data.model.FormatOption
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormatCard(
     format: FormatOption,
@@ -28,23 +29,11 @@ fun FormatCard(
         label = "containerColor"
     )
 
-    val borderColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-        },
-        label = "borderColor"
-    )
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        border = CardDefaults.outlinedCardBorder().copy(
-            width = if (isSelected) 2.dp else 1.dp
-        )
+        colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Row(
             modifier = Modifier
