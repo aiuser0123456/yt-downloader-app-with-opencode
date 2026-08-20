@@ -16,6 +16,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.YTDownloader"
         android:usesCleartextTraffic="true"
+        android:extractNativeLibs="true"
+        android:requestLegacyExternalStorage="true"
         tools:targetApi="34">
         <activity
             android:name=".MainActivity"

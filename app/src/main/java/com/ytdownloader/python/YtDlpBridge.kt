@@ -2,126 +2,47 @@ package com.ytdownloader.python
 
 import com.ytdownloader.data.model.FormatOption
 import com.ytdownloader.data.model.VideoInfo
+import com.yausername.youtubedl_android.YoutubeDL
+import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.File
-import java.io.InputStreamReader
 
 object YtDlpBridge {
 
-    private var permissionsSet = false
-
-    private fun ensureExecutePermission(path: String) {
-        if (permissionsSet) return
-        try {
-            val process = Runtime.getRuntime().exec(arrayOf("chmod", "755", path))
-            process.waitFor()
-            permissionsSet = true
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     suspend fun fetchVideoInfo(url: String): VideoInfo = withContext(Dispatchers.IO) {
-        val ytdlpPath = BinaryManager.getYtDlpPath()
-        val file = File(ytdlpPath)
+        val request = YoutubeDLRequest(url)
+        request.addOption("--dump-json")
+        request.addOption("--no-playlist")
+        request.addOption("--no-warnings")
 
-        if (!file.exists()) {
-            throw RuntimeException("yt-dlp binary not found at: $ytdlpPath")
-        }
+        val result = YoutubeDL.getInstance().execute(request)
+        val json = result.out
 
-        ensureExecutePermission(ytdlpPath)
-
-        val command = listOf(
-            ytdlpPath,
-            "--dump-json",
-            "--no-playlist",
-            "--no-warnings",
-            "--no-check-certificates",
-            "--cache-dir", File(file.parentFile, "cache").absolutePath,
-            url
-        )
-
-        val process = ProcessBuilder(command)
-            .redirectErrorStream(true)
-            .start()
-
-        val output = readProcessOutput(process)
-        val exitCode = process.waitFor()
-
-        if (exitCode != 0) {
-            throw RuntimeException("yt-dlp failed (code $exitCode): $output")
-        }
-
-        parseVideoInfo(output, url)
+        parseVideoInfo(json, url)
     }
 
     suspend fun fetchFormats(url: String): Pair<List<FormatOption>, List<FormatOption>> =
         withContext(Dispatchers.IO) {
-            val ytdlpPath = BinaryManager.getYtDlpPath()
-            val file = File(ytdlpPath)
+            val request = YoutubeDLRequest(url)
+            request.addOption("--dump-json")
+            request.addOption("--no-playlist")
+            request.addOption("--no-warnings")
 
-            if (!file.exists()) {
-                throw RuntimeException("yt-dlp binary not found at: $ytdlpPath")
-            }
+            val result = YoutubeDL.getInstance().execute(request)
+            val json = result.out
 
-            ensureExecutePermission(ytdlpPath)
-
-            val command = listOf(
-                ytdlpPath,
-                "--dump-json",
-                "--no-playlist",
-                "--no-warnings",
-                "--no-check-certificates",
-                "--cache-dir", File(file.parentFile, "cache").absolutePath,
-                url
-            )
-
-            val process = ProcessBuilder(command)
-                .redirectErrorStream(true)
-                .start()
-
-            val output = readProcessOutput(process)
-            val exitCode = process.waitFor()
-
-            if (exitCode != 0) {
-                throw RuntimeException("yt-dlp failed (code $exitCode): $output")
-            }
-
-            parseFormats(output)
+            parseFormats(json)
         }
 
     suspend fun testBinary(): String = withContext(Dispatchers.IO) {
-        val ytdlpPath = BinaryManager.getYtDlpPath()
-
-        if (!File(ytdlpPath).exists()) {
-            return@withContext "yt-dlp binary not found at: $ytdlpPath"
+        try {
+            val request = YoutubeDLRequest("--version")
+            val result = YoutubeDL.getInstance().execute(request)
+            result.out.trim()
+        } catch (e: Exception) {
+            "Error: ${e.message}"
         }
-
-        ensureExecutePermission(ytdlpPath)
-
-        val command = listOf(ytdlpPath, "--version")
-
-        val process = ProcessBuilder(command)
-            .redirectErrorStream(true)
-            .start()
-
-        val output = readProcessOutput(process)
-        process.waitFor()
-
-        output.ifEmpty { "No output" }
-    }
-
-    private fun readProcessOutput(process: Process): String {
-        val reader = BufferedReader(InputStreamReader(process.inputStream))
-        val output = StringBuilder()
-        var line: String?
-        while (reader.readLine().also { line = it } != null) {
-            output.append(line).append("\n")
-        }
-        return output.toString().trim()
     }
 
     private fun parseVideoInfo(json: String, url: String): VideoInfo {
