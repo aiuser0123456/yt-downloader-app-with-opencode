@@ -20,11 +20,11 @@ object YtDlpBridge {
                 description = streamInfo.description ?: "",
                 thumbnailUrl = streamInfo.thumbnail ?: "",
                 durationSeconds = streamInfo.duration.toInt(),
-                viewCount = streamInfo.viewCount,
-                likeCount = streamInfo.likeCount,
+                viewCount = streamInfo.viewCount?.toLongOrNull() ?: 0L,
+                likeCount = streamInfo.likeCount?.toLongOrNull() ?: 0L,
                 uploadDate = streamInfo.uploadDate ?: "",
-                uploader = streamInfo.uploader ?: streamInfo.channel ?: "",
-                channel = streamInfo.channel ?: streamInfo.uploader ?: ""
+                uploader = streamInfo.uploader ?: "",
+                channel = streamInfo.uploader ?: ""
             )
         } catch (e: Exception) {
             throw e
