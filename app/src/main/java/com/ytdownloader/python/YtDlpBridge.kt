@@ -6,64 +6,63 @@ import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 
 object YtDlpBridge {
 
     suspend fun fetchVideoInfo(url: String): VideoInfo = withContext(Dispatchers.IO) {
-        val request = YoutubeDLRequest(url)
-        request.addOption("--dump-json")
-        request.addOption("--no-playlist")
-        request.addOption("--no-warnings")
+        try {
+            val streamInfo = YoutubeDL.getInstance().getInfo(url)
 
-        val result = YoutubeDL.getInstance().execute(request)
-        val json = result.out
-
-        parseVideoInfo(json, url)
+            VideoInfo(
+                url = url,
+                id = streamInfo.id ?: "",
+                title = streamInfo.title ?: "",
+                description = streamInfo.description ?: "",
+                thumbnailUrl = streamInfo.thumbnail ?: "",
+                durationSeconds = streamInfo.duration.toInt(),
+                viewCount = streamInfo.viewCount,
+                likeCount = streamInfo.likeCount,
+                uploadDate = streamInfo.uploadDate ?: "",
+                uploader = streamInfo.uploader ?: streamInfo.channel ?: "",
+                channel = streamInfo.channel ?: streamInfo.uploader ?: ""
+            )
+        } catch (e: Exception) {
+            throw e
+        }
     }
 
     suspend fun fetchFormats(url: String): Pair<List<FormatOption>, List<FormatOption>> =
         withContext(Dispatchers.IO) {
-            val request = YoutubeDLRequest(url)
-            request.addOption("--dump-json")
-            request.addOption("--no-playlist")
-            request.addOption("--no-warnings")
+            try {
+                val request = YoutubeDLRequest(url)
+                request.addOption("-j")
+                request.addOption("--no-playlist")
 
-            val result = YoutubeDL.getInstance().execute(request)
-            val json = result.out
+                val result = YoutubeDL.getInstance().execute(request)
+                val json = result.out
 
-            parseFormats(json)
+                parseFormats(json)
+            } catch (e: Exception) {
+                throw e
+            }
         }
 
     suspend fun testBinary(): String = withContext(Dispatchers.IO) {
         try {
-            val request = YoutubeDLRequest("--version")
-            val result = YoutubeDL.getInstance().execute(request)
-            result.out.trim()
+            val request = YoutubeDLRequest("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            request.addOption("--dump-json")
+            request.addOption("--no-playlist")
+            request.addOption("--skip-download")
+
+            YoutubeDL.getInstance().execute(request)
+            "OK - library initialized"
         } catch (e: Exception) {
             "Error: ${e.message}"
         }
     }
 
-    private fun parseVideoInfo(json: String, url: String): VideoInfo {
-        val obj = JSONObject(json)
-        return VideoInfo(
-            url = url,
-            id = obj.optString("id", ""),
-            title = obj.optString("title", ""),
-            description = obj.optString("description", ""),
-            thumbnailUrl = obj.optString("thumbnail", ""),
-            durationSeconds = obj.optInt("duration", 0),
-            viewCount = obj.optLong("view_count", 0),
-            likeCount = obj.optLong("like_count", 0),
-            uploadDate = obj.optString("upload_date", ""),
-            uploader = obj.optString("uploader", obj.optString("channel", "")),
-            channel = obj.optString("channel", obj.optString("uploader", ""))
-        )
-    }
-
     private fun parseFormats(json: String): Pair<List<FormatOption>, List<FormatOption>> {
-        val obj = JSONObject(json)
+        val obj = org.json.JSONObject(json)
         val formatsArray = obj.getJSONArray("formats")
 
         val videoFormats = mutableListOf<FormatOption>()

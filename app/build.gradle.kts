@@ -83,8 +83,8 @@ dependencies {
 
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
-    implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
-    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
+    implementation("io.github.junkfood02.youtubedl-android:library:0.16.0")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.16.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

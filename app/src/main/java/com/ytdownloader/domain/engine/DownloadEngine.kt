@@ -2,7 +2,6 @@ package com.ytdownloader.domain.engine
 
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
-import com.yausername.youtubedl_android.YoutubeDLListener
 import com.ytdownloader.data.model.DownloadStatus
 import com.ytdownloader.data.model.DownloadTask
 import com.ytdownloader.data.model.FormatOption
@@ -10,9 +9,8 @@ import com.ytdownloader.data.model.VideoInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.io.File
-import kotlin.coroutines.resume
 
 class DownloadEngine(
     private val downloadDir: File
@@ -20,7 +18,7 @@ class DownloadEngine(
     private val _downloadState = MutableStateFlow<DownloadTask?>(null)
     val downloadState: StateFlow<DownloadTask?> = _downloadState
 
-    private var currentProcess: Process? = null
+    private var currentProcessId: String? = null
 
     suspend fun startDownload(
         videoInfo: VideoInfo,
@@ -44,6 +42,7 @@ class DownloadEngine(
         downloadDir.mkdirs()
 
         val outputFile = File(downloadDir, outputFileName)
+        currentProcessId = "yt_download_${videoInfo.id}"
 
         try {
             _downloadState.value = task.copy(status = DownloadStatus.DOWNLOADING_VIDEO)
@@ -58,18 +57,29 @@ class DownloadEngine(
             request.addOption("--no-warnings")
             request.addOption("--newline")
 
-            _downloadState.value = task.copy(status = DownloadStatus.DOWNLOADING_VIDEO)
+            _downloadState.value = task.copy(
+                status = DownloadStatus.DOWNLOADING_VIDEO,
+                overallProgress = 0.1f
+            )
 
-            val success = executeDownload(request, outputFile)
+            withContext(Dispatchers.IO) {
+                YoutubeDL.getInstance().execute(request, currentProcessId) { progress, _, _ ->
+                    _downloadState.value = _downloadState.value?.copy(
+                        status = DownloadStatus.DOWNLOADING_VIDEO,
+                        overallProgress = 0.1f + (progress / 100f) * 0.9f,
+                        videoProgress = progress / 100f
+                    )
+                }
+            }
 
-            if (success) {
+            if (outputFile.exists() && outputFile.length() > 0) {
                 _downloadState.value = _downloadState.value?.copy(
                     status = DownloadStatus.COMPLETED,
                     overallProgress = 1f,
                     outputPath = outputFile.absolutePath
                 )
             } else {
-                throw RuntimeException("Download failed")
+                throw RuntimeException("Download failed - output file not created")
             }
 
         } catch (e: Exception) {
@@ -81,57 +91,13 @@ class DownloadEngine(
         }
     }
 
-    private suspend fun executeDownload(
-        request: YoutubeDLRequest,
-        outputFile: File
-    ): Boolean = suspendCancellableCoroutine { continuation ->
-        val listener = object : YoutubeDLListener {
-            override fun onProgressUpdate(progress: Float, eta: Int) {
-                val currentTask = _downloadState.value ?: return
-                _downloadState.value = currentTask.copy(
-                    overallProgress = progress,
-                    audioEta = eta
-                )
-            }
-
-            override fun onDebugUpdate(line: String) {
-                parseProgress(line)
-            }
-
-            override fun onStart() {}
-
-            override fun onEnd() {}
-        }
-
-        YoutubeDL.getInstance().enqueue(request, listener)
-
-        continuation.invokeOnCancellation {
-            YoutubeDL.getInstance().destroy()
-        }
-    }
-
-    private fun parseProgress(line: String) {
-        val percentRegex = Regex("""(\d+\.?\d*)%""")
-        val match = percentRegex.find(line) ?: return
-
-        val progress = match.groupValues[1].toFloatOrNull() ?: return
-        val currentTask = _downloadState.value ?: return
-
-        _downloadState.value = currentTask.copy(
-            overallProgress = progress / 100f
-        )
-
-        val speedRegex = Regex("""at\s+(\d+\.?\d*\s*[KMG]iB/s)""")
-        val speedMatch = speedRegex.find(line)
-        if (speedMatch != null) {
-            _downloadState.value = currentTask.copy(
-                videoSpeed = speedMatch.groupValues[1]
-            )
-        }
-    }
-
     fun cancelDownload() {
-        YoutubeDL.getInstance().destroy()
+        currentProcessId?.let { pid ->
+            try {
+                YoutubeDL.getInstance().destroyProcessById(pid)
+            } catch (_: Exception) {}
+        }
+        currentProcessId = null
         _downloadState.value = null
     }
 }
